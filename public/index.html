@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedInOS | Competitor Post Dashboard</title>
+    <meta name="description"
+        content="Scrape, analyze, and repurpose top LinkedIn posts from competitors with AI-powered content generation.">
+    <script>
+        // Global error handler — show errors on page so we can debug
+        window.onerror = function (msg, url, line, col, err) {
+            var d = document.getElementById('contentArea');
+            if (d) d.innerHTML = '<div style="padding:40px;color:#f87171;text-align:center;"><h3>JS Error</h3><p>' + msg + '</p><p style="font-size:12px;color:#9CA3AF">at ' + url + ':' + line + '</p></div>';
+            console.error('[GLOBAL ERROR]', msg, url, line);
+            return false;
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=3">
+</head>
+
+<body>
+
+    <!-- Top Header Bar -->
+    <header class="top-header">
+        <div class="header-inner">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                        <rect x="2" y="9" width="4" height="12"></rect>
+                        <circle cx="4" cy="4" r="2"></circle>
+                    </svg>
+                </div>
+                <span class="logo-text">Linked<span class="accent">OS</span></span>
+            </div>
+
+            <nav class="top-tabs" id="topTabs"></nav>
+
+            <div class="header-right">
+                <select id="clientSelector" class="client-select" onchange="selectClient(this.value)">
+                    <option value="">Select Client...</option>
+                </select>
+                <button class="btn-primary" onclick="showModal('newClient')">
+                    <i data-lucide="plus" class="icon-sm"></i> New Client
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-title-box">
+                <p class="sidebar-title" id="sidebarTitle">DASHBOARD</p>
+            </div>
+            <nav class="side-tabs" id="sideTabs"></nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="avatar" id="userAvatar">B</div>
+                    <div class="user-details">
+                        <p class="user-name" id="userName">User</p>
+                        <p class="user-role" id="userRole">Administrator</p>
+                    </div>
+                </div>
+                <button class="btn-ghost btn-sm" onclick="showModal('settings')">
+                    <i data-lucide="settings" class="icon-xs"></i> Settings
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="content-main">
+            <div class="content-header">
+                <h1 class="page-title" id="pageTitle">Overview</h1>
+                <div class="page-actions" id="pageActions"></div>
+            </div>
+            <div class="content-area" id="contentArea">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <span>Loading...</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Container -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-content" id="modalContent"></div>
+    </div>
+
+    <script src="app.js?v=3"></script>
+</body>
+
+</html>
