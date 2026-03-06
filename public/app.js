@@ -577,7 +577,32 @@ async function loadPostsContent() {
         return;
     }
 
-    let query = sb.from('posts').select('*').eq('client_id', currentClient.id);
+    // Fetch competitors for filtering dropdown
+    const { data: comps } = await sb.from('competitors')
+        .select('id, name')
+        .eq('client_id', currentClient.id)
+        .order('name');
+
+    // Make sure we have a global filter variable
+    window.currentCompetitorFilter = window.currentCompetitorFilter || 'all';
+
+    // Update Page Actions to include the dropdown
+    const pageActions = document.getElementById('pageActions');
+    pageActions.innerHTML = `
+        <select class="form-input" style="width:auto;min-width:200px;background:#1F2937;border-color:#374151;color:white;font-size:13px;" onchange="filterPostsByCompetitor(this.value)">
+            <option value="all">All Competitors</option>
+            ${(comps || []).map(c => `<option value="${c.id}" ${window.currentCompetitorFilter === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+        </select>
+    `;
+
+    let query = sb.from('posts').select('*, competitors(name)').eq('client_id', currentClient.id);
+
+    // Apply Competitor Filter
+    if (window.currentCompetitorFilter !== 'all') {
+        query = query.eq('competitor_id', window.currentCompetitorFilter);
+    }
+
+    // Apply Sorting (Top Performers vs Feed)
     if (currentSideTab === 'top') {
         query = query.order('engagement_score', { ascending: false }).limit(20);
     } else {
@@ -590,8 +615,8 @@ async function loadPostsContent() {
         contentArea.innerHTML = `
             <div class="empty-state">
                 <i data-lucide="file-text" class="empty-icon"></i>
-                <h3>No posts scraped yet</h3>
-                <p>Run the scraper to fetch competitor posts</p>
+                <h3>No posts found</h3>
+                <p>${window.currentCompetitorFilter !== 'all' ? 'No posts scraped for this specific competitor yet.' : 'Run the scraper to fetch competitor posts.'}</p>
             </div>`;
         return;
     }
@@ -604,7 +629,10 @@ async function loadPostsContent() {
                         <div class="post-card-author-avatar">${(p.author_name || '?')[0].toUpperCase()}</div>
                         <div>
                             <div class="post-card-author-name">${p.author_name || 'Unknown'}</div>
-                            <div class="post-card-author-meta">${p.post_date ? new Date(p.post_date).toLocaleDateString() : 'Date unknown'} · ${p.post_type || 'text'}</div>
+                            <div class="post-card-author-meta">
+                                ${p.post_date ? new Date(p.post_date).toLocaleDateString() : 'Date unknown'} · ${p.post_type || 'text'}
+                                <br><span style="color:#8B5CF6;font-size:11px;">Scraped from: ${p.competitors?.name || 'Unknown'}</span>
+                            </div>
                         </div>
                     </div>
                     <div class="post-card-body">
@@ -627,6 +655,11 @@ async function loadPostsContent() {
                 </div>
             `).join('')}
         </div>`;
+}
+
+window.filterPostsByCompetitor = function (compId) {
+    window.currentCompetitorFilter = compId;
+    loadPostsContent(); // Just reload the posts area
 }
 
 async function generateDraftFromPost(postId) {
