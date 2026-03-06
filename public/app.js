@@ -450,8 +450,17 @@ async function loadCompetitorsContent() {
                 </div>
             </div>`;
     } else {
-        let query = sb.from('competitors').select('*').order('created_at', { ascending: false });
-        if (currentClient) query = query.eq('client_id', currentClient.id);
+        if (!currentClient) {
+            contentArea.innerHTML = `
+                <div class="empty-state">
+                    <i data-lucide="users" class="empty-icon"></i>
+                    <h3>Select a Client</h3>
+                    <p>Please select a client from the top right dropdown to view their competitors.</p>
+                </div>`;
+            return;
+        }
+
+        let query = sb.from('competitors').select('*').eq('client_id', currentClient.id).order('created_at', { ascending: false });
         const { data: comps } = await query;
 
         document.getElementById('pageActions').innerHTML = `
@@ -558,8 +567,17 @@ async function scrapeCompetitor(btn, compId, linkedinUrl, clientId, maxPosts = 2
 async function loadPostsContent() {
     const contentArea = document.getElementById('contentArea');
 
-    let query = sb.from('posts').select('*');
-    if (currentClient) query = query.eq('client_id', currentClient.id);
+    if (!currentClient) {
+        contentArea.innerHTML = `
+            <div class="empty-state">
+                <i data-lucide="file-text" class="empty-icon"></i>
+                <h3>Select a Client</h3>
+                <p>Please select a client from the top right dropdown to view their scraped posts.</p>
+            </div>`;
+        return;
+    }
+
+    let query = sb.from('posts').select('*').eq('client_id', currentClient.id);
     if (currentSideTab === 'top') {
         query = query.order('engagement_score', { ascending: false }).limit(20);
     } else {
@@ -640,8 +658,17 @@ async function generateDraftFromPost(postId) {
 async function loadDraftsContent() {
     const contentArea = document.getElementById('contentArea');
 
-    let query = sb.from('drafts').select('*');
-    if (currentClient) query = query.eq('client_id', currentClient.id);
+    if (!currentClient) {
+        contentArea.innerHTML = `
+            <div class="empty-state">
+                <i data-lucide="edit-3" class="empty-icon"></i>
+                <h3>Select a Client</h3>
+                <p>Please select a client from the top right dropdown to view their drafts.</p>
+            </div>`;
+        return;
+    }
+
+    let query = sb.from('drafts').select('*').eq('client_id', currentClient.id);
     if (currentSideTab !== 'pending') {
         const statusMap = { 'approved': 'approved', 'rejected': 'rejected', 'scheduled': 'scheduled' };
         if (statusMap[currentSideTab]) query = query.eq('status', statusMap[currentSideTab]);
@@ -757,9 +784,21 @@ function scheduleDraft(draftId) {
 async function loadApprovalsContent() {
     const contentArea = document.getElementById('contentArea');
 
+    if (!currentClient) {
+        contentArea.innerHTML = `
+            <div class="empty-state">
+                <i data-lucide="check-circle" class="empty-icon"></i>
+                <h3>Select a Client</h3>
+                <p>Please select a client from the top right dropdown to view approval history.</p>
+            </div>`;
+        return;
+    }
+
+    // We only want approvals for the current client's drafts
     const { data: approvalsList } = await sb
         .from('approvals')
-        .select('*, drafts(caption, status)')
+        .select('*, drafts!inner(caption, status, client_id)')
+        .eq('drafts.client_id', currentClient.id)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -799,8 +838,17 @@ async function loadApprovalsContent() {
 async function loadAnalyticsContent() {
     const contentArea = document.getElementById('contentArea');
 
-    let query = sb.from('posts').select('likes, comments, shares, engagement_score, post_date, post_type');
-    if (currentClient) query = query.eq('client_id', currentClient.id);
+    if (!currentClient) {
+        contentArea.innerHTML = `
+            <div class="empty-state">
+                <i data-lucide="bar-chart-2" class="empty-icon"></i>
+                <h3>Select a Client</h3>
+                <p>Please select a client from the top right dropdown to view analytics.</p>
+            </div>`;
+        return;
+    }
+
+    let query = sb.from('posts').select('likes, comments, shares, engagement_score, post_date, post_type').eq('client_id', currentClient.id);
     const { data: posts } = await query;
 
     if (!posts?.length) {
