@@ -621,10 +621,13 @@ async function loadPostsContent() {
         return;
     }
 
+    // Store posts globally so the modal can access them
+    window._postsCache = posts;
+
     contentArea.innerHTML = `
         <div class="post-feed">
-            ${posts.map(p => `
-                <div class="post-card">
+            ${posts.map((p, idx) => `
+                <div class="post-card" style="cursor:pointer;" onclick="showPostModal(${idx})">
                     <div class="post-card-header">
                         <div class="post-card-author-avatar">${(p.author_name || '?')[0].toUpperCase()}</div>
                         <div>
@@ -641,13 +644,13 @@ async function loadPostsContent() {
                     </div>
                     <div class="post-card-footer">
                         <div class="post-metrics">
-                            <span class="post-metric"><i data-lucide="thumbs-up" class="icon-xs"></i> ${p.likes || 0}</span>
-                            <span class="post-metric"><i data-lucide="message-circle" class="icon-xs"></i> ${p.comments || 0}</span>
-                            <span class="post-metric"><i data-lucide="share-2" class="icon-xs"></i> ${p.shares || 0}</span>
-                            <span class="post-metric"><i data-lucide="zap" class="icon-xs"></i> ${Math.round(p.engagement_score || 0)}</span>
+                            <span class="post-metric">👍 ${p.likes || 0}</span>
+                            <span class="post-metric">💬 ${p.comments || 0}</span>
+                            <span class="post-metric">🔄 ${p.shares || 0}</span>
+                            <span class="post-metric">⚡ ${Math.round(p.engagement_score || 0)}</span>
                         </div>
                         <div class="post-actions">
-                            <button class="btn-secondary btn-sm" onclick="generateDraftFromPost('${p.id}')">
+                            <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); generateDraftFromPost('${p.id}')">
                                 <i data-lucide="sparkles" class="icon-xs"></i> Generate Draft
                             </button>
                         </div>
@@ -659,7 +662,54 @@ async function loadPostsContent() {
 
 window.filterPostsByCompetitor = function (compId) {
     window.currentCompetitorFilter = compId;
-    loadPostsContent(); // Just reload the posts area
+    loadPostsContent();
+}
+
+window.showPostModal = function (idx) {
+    const p = window._postsCache?.[idx];
+    if (!p) return;
+
+    const overlay = document.getElementById('modalOverlay');
+    const content = document.getElementById('modalContent');
+    overlay.classList.add('visible');
+
+    content.innerHTML = `
+        <div class="modal-header">
+            <span class="modal-title" style="display:flex;align-items:center;gap:10px;">
+                <div class="post-card-author-avatar" style="width:32px;height:32px;font-size:13px;">${(p.author_name || '?')[0].toUpperCase()}</div>
+                ${escapeHtml(p.author_name || 'Unknown')}
+            </span>
+            <button class="modal-close" onclick="closeModal()">
+                <i data-lucide="x" class="icon-sm"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+                <span class="badge violet">${p.post_type || 'text'}</span>
+                <span class="badge blue">${p.post_date ? new Date(p.post_date).toLocaleDateString() : 'Date unknown'}</span>
+                ${p.competitors?.name ? `<span class="badge" style="background:rgba(139,92,246,0.15);color:#A78BFA;">Scraped from: ${escapeHtml(p.competitors.name)}</span>` : ''}
+            </div>
+            <div style="display:flex;gap:20px;margin-bottom:20px;">
+                <span style="font-size:14px;">👍 <strong>${p.likes || 0}</strong> <span style="color:#6B7280;">Likes</span></span>
+                <span style="font-size:14px;">💬 <strong>${p.comments || 0}</strong> <span style="color:#6B7280;">Comments</span></span>
+                <span style="font-size:14px;">🔄 <strong>${p.shares || 0}</strong> <span style="color:#6B7280;">Shares</span></span>
+                <span style="font-size:14px;">⚡ <strong>${Math.round(p.engagement_score || 0)}</strong> <span style="color:#6B7280;">Engagement</span></span>
+            </div>
+            <div style="white-space:pre-line;font-size:14px;line-height:1.8;color:#D1D5DB;padding:16px;background:#0D1117;border:1px solid #1F2937;border-radius:10px;">
+${escapeHtml(p.content || 'No content available.')}
+            </div>
+            ${p.media_url ? `<img src="${p.media_url}" style="width:100%;max-height:400px;object-fit:contain;margin-top:16px;border-radius:10px;" onerror="this.style.display='none'">` : ''}
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="navigator.clipboard.writeText(${JSON.stringify(p.content || '').replace(/'/g, "\\'")}); showToast('✅ Copied to clipboard','success');">
+                <i data-lucide="copy" class="icon-sm"></i> Copy Text
+            </button>
+            <button class="btn-primary" onclick="closeModal(); generateDraftFromPost('${p.id}')">
+                <i data-lucide="sparkles" class="icon-sm"></i> Generate Draft
+            </button>
+        </div>`;
+
+    lucide.createIcons();
 }
 
 async function generateDraftFromPost(postId) {
