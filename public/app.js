@@ -49,8 +49,7 @@ const SIDE_TABS = {
         { id: 'add', label: 'Add Competitor' }
     ],
     'posts': [
-        { id: 'feed', label: 'Post Feed' },
-        { id: 'top', label: 'Top Performers' }
+        { id: 'feed', label: 'Post Feed' }
     ],
     'drafts': [
         { id: 'pending', label: 'Pending Review' },
@@ -585,14 +584,24 @@ async function loadPostsContent() {
 
     // Make sure we have a global filter variable
     window.currentCompetitorFilter = window.currentCompetitorFilter || 'all';
+    window.currentPostSort = window.currentPostSort || 'recent';
 
-    // Update Page Actions to include the dropdown
+    // Update Page Actions to include both dropdowns
     const pageActions = document.getElementById('pageActions');
     pageActions.innerHTML = `
-        <select class="form-input" style="width:auto;min-width:200px;background:#1F2937;border-color:#374151;color:white;font-size:13px;" onchange="filterPostsByCompetitor(this.value)">
-            <option value="all">All Competitors</option>
-            ${(comps || []).map(c => `<option value="${c.id}" ${window.currentCompetitorFilter === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
-        </select>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <select class="form-input" style="width:auto;min-width:160px;background:#1F2937;border-color:#374151;color:white;font-size:13px;" onchange="sortPostsBy(this.value)">
+                <option value="recent" ${window.currentPostSort === 'recent' ? 'selected' : ''}>🕐 Most Recent</option>
+                <option value="likes" ${window.currentPostSort === 'likes' ? 'selected' : ''}>👍 Most Likes</option>
+                <option value="comments" ${window.currentPostSort === 'comments' ? 'selected' : ''}>💬 Most Comments</option>
+                <option value="shares" ${window.currentPostSort === 'shares' ? 'selected' : ''}>🔄 Most Shares</option>
+                <option value="engagement" ${window.currentPostSort === 'engagement' ? 'selected' : ''}>⚡ Highest Engagement</option>
+            </select>
+            <select class="form-input" style="width:auto;min-width:200px;background:#1F2937;border-color:#374151;color:white;font-size:13px;" onchange="filterPostsByCompetitor(this.value)">
+                <option value="all">All Competitors</option>
+                ${(comps || []).map(c => `<option value="${c.id}" ${window.currentCompetitorFilter === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+            </select>
+        </div>
     `;
 
     let query = sb.from('posts').select('*, competitors(name)').eq('client_id', currentClient.id);
@@ -602,12 +611,16 @@ async function loadPostsContent() {
         query = query.eq('competitor_id', window.currentCompetitorFilter);
     }
 
-    // Apply Sorting (Top Performers vs Feed)
-    if (currentSideTab === 'top') {
-        query = query.order('engagement_score', { ascending: false }).limit(20);
-    } else {
-        query = query.order('scraped_at', { ascending: false }).limit(50);
-    }
+    // Apply Sorting
+    const sortMap = {
+        'recent': { col: 'scraped_at', asc: false },
+        'likes': { col: 'likes', asc: false },
+        'comments': { col: 'comments', asc: false },
+        'shares': { col: 'shares', asc: false },
+        'engagement': { col: 'engagement_score', asc: false }
+    };
+    const sort = sortMap[window.currentPostSort] || sortMap['recent'];
+    query = query.order(sort.col, { ascending: sort.asc }).limit(50);
 
     const { data: posts } = await query;
 
@@ -629,12 +642,12 @@ async function loadPostsContent() {
             ${posts.map((p, idx) => `
                 <div class="post-card" style="cursor:pointer;" onclick="showPostModal(${idx})">
                     <div class="post-card-header">
-                        <div class="post-card-author-avatar">${(p.author_name || '?')[0].toUpperCase()}</div>
+                        <div class="post-card-author-avatar" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">${(p.competitors?.name || p.author_name || '?')[0].toUpperCase()}</div>
                         <div>
-                            <div class="post-card-author-name">${p.author_name || 'Unknown'}</div>
+                            <div class="post-card-author-name">${escapeHtml(p.competitors?.name || 'Unknown Competitor')}</div>
                             <div class="post-card-author-meta">
                                 ${p.post_date ? new Date(p.post_date).toLocaleDateString() : 'Date unknown'} · ${p.post_type || 'text'}
-                                <br><span style="color:#8B5CF6;font-size:11px;">Scraped from: ${p.competitors?.name || 'Unknown'}</span>
+                                ${p.author_name && p.author_name !== p.competitors?.name ? `<br><span style="color:#6B7280;font-size:11px;">Post by: ${escapeHtml(p.author_name)}</span>` : ''}
                             </div>
                         </div>
                     </div>
@@ -665,6 +678,11 @@ window.filterPostsByCompetitor = function (compId) {
     loadPostsContent();
 }
 
+window.sortPostsBy = function (sortKey) {
+    window.currentPostSort = sortKey;
+    loadPostsContent();
+}
+
 window.showPostModal = function (idx) {
     const p = window._postsCache?.[idx];
     if (!p) return;
@@ -676,8 +694,8 @@ window.showPostModal = function (idx) {
     content.innerHTML = `
         <div class="modal-header">
             <span class="modal-title" style="display:flex;align-items:center;gap:10px;">
-                <div class="post-card-author-avatar" style="width:32px;height:32px;font-size:13px;">${(p.author_name || '?')[0].toUpperCase()}</div>
-                ${escapeHtml(p.author_name || 'Unknown')}
+                <div class="post-card-author-avatar" style="width:32px;height:32px;font-size:13px;">${(p.competitors?.name || p.author_name || '?')[0].toUpperCase()}</div>
+                ${escapeHtml(p.competitors?.name || 'Unknown Competitor')}
             </span>
             <button class="modal-close" onclick="closeModal()">
                 <i data-lucide="x" class="icon-sm"></i>
@@ -687,7 +705,7 @@ window.showPostModal = function (idx) {
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
                 <span class="badge violet">${p.post_type || 'text'}</span>
                 <span class="badge blue">${p.post_date ? new Date(p.post_date).toLocaleDateString() : 'Date unknown'}</span>
-                ${p.competitors?.name ? `<span class="badge" style="background:rgba(139,92,246,0.15);color:#A78BFA;">Scraped from: ${escapeHtml(p.competitors.name)}</span>` : ''}
+                ${p.author_name && p.author_name !== p.competitors?.name ? `<span class="badge" style="background:rgba(96,165,250,0.15);color:#60A5FA;">Post by: ${escapeHtml(p.author_name)}</span>` : ''}
             </div>
             <div style="display:flex;gap:20px;margin-bottom:20px;">
                 <span style="font-size:14px;">👍 <strong>${p.likes || 0}</strong> <span style="color:#6B7280;">Likes</span></span>
